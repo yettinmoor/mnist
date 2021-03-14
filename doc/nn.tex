@@ -1,0 +1,49 @@
+% vim:ft=tex
+\documentclass[12pt]{article}
+
+%% Basic
+\usepackage{blindtext}
+\usepackage{enumitem}
+
+%% Math
+\usepackage{amssymb,amsmath}
+\usepackage{unicode-math}
+\usepackage[super]{nth}
+
+%% Font/encoding
+\usepackage{fontspec}
+\usepackage{sourcecodepro}
+
+%% Aesthetics
+\usepackage[margin=1in, top=1.2in, bottom=1.2in]{geometry}
+\usepackage{parskip}
+\renewcommand{\arraystretch}{1.2}
+\usepackage{xcolor, colortbl}
+
+%% Tables, figures, etc.
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{array}
+
+%% Language
+\usepackage{polyglossia}
+\usepackage{xeCJK}
+\setCJKmainfont{Noto Serif CJK JP}
+\setCJKsansfont{Noto Sans CJK JP}
+\usepackage{polyglossia}
+%\setmainlanguage{swedish}
+
+
+%%% ---> !!! DOCUMENT BEGINS HERE !!! <--- %%%
+
+\begin{document}
+
+\Large
+\begin{align}
+    \delta^L &= \nabla_a C \odot \sigma'(z^L) \\
+    \delta^l &= ((w^{l+1})^T)\delta^{l+1})\odot\sigma(z^l) \\
+    \frac{\partial C}{\partial b^l_j} &= \delta^l_j \\
+    \frac{\partial C}{\partial w^l_{jk}} &= a^{l-1}_k\delta^l_j
+\end{align}
+
+\end{document}
