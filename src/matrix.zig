@@ -12,13 +12,13 @@ pub fn Matrix(comptime T: type) type {
 
         const Self = @This();
 
-        pub fn init(allocator: *mem.Allocator, m: u32, n: u32) !Self {
-            const data = try allocator.alloc(T, m * n);
+        pub fn init(allocator: *mem.Allocator, m: usize, n: usize) !Self {
+            const data = try allocator.alloc(T, @intCast(u32, m) * @intCast(u32, n));
             return Self{
                 .allocator = allocator,
                 .data = data,
-                .m = m,
-                .n = n,
+                .m = @intCast(u32, m),
+                .n = @intCast(u32, n),
             };
         }
 
@@ -38,6 +38,12 @@ pub fn Matrix(comptime T: type) type {
 
         pub fn size(self: Self) Size {
             return .{ .m = self.m, .n = self.n };
+        }
+
+        pub fn copyColumn(self: *Self, xs: []T, column: usize) void {
+            for (xs) |x, i| {
+                self.data[column + self.n * i] = x;
+            }
         }
 
         pub fn transpose(self: *Self, allocator: *mem.Allocator) !Self {

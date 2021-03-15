@@ -133,6 +133,36 @@ pub fn trainBatch(nw: *Network, comptime T: type, batch: []T, eta: f32) !void {
     defer arena.deinit();
     const allocator = &arena.allocator;
 
+    // Convert batch to matrix form
+    var batch_matrix = try Matf.init(nw.allocator, nw.layers[0], batch.len);
+    defer batch_matrix.deinit();
+    for (batch) |b, i| {
+        var a = try b.toInput(nw.allocator);
+        defer a.deinit();
+        batch_matrix.copyColumn(a.data, i);
+    }
+
+    var zs = try allocator.alloc(Matf, nw.layers.len - 1);
+    var activations = try allocator.alloc(Matf, nw.layers.len);
+
+    activations[0] = batch_matrix;
+    for (nw.weights) |w, i| {
+        // a = sigma(w * a' + b)
+        var z = try Matf.init(allocator, nw.biases[i].data.len, batch.len);
+        var col: usize = 0;
+        while (col < batch.len) : (col += 1) {
+            z.copyColumn(nw.biases[i].data, col);
+        }
+        const w_mul_a = try w.mul(activations[i], allocator);
+        z.add(w_mul_a);
+        zs[i] = z;
+
+        activations[i + 1] = try z.apply(allocator, f32, sigmoid);
+    }
+
+    mem.reverse(Matf, zs);
+    mem.reverse(Matf, activations);
+
     var nabla_w = try allocator.alloc(Matf, nw.layers.len - 1);
     var nabla_b = try allocator.alloc(Matf, nw.layers.len - 1);
 
@@ -147,53 +177,36 @@ pub fn trainBatch(nw: *Network, comptime T: type, batch: []T, eta: f32) !void {
     mem.reverse(Matf, nabla_w);
     mem.reverse(Matf, nabla_b);
 
-    for (batch) |data| {
-        var zs = try allocator.alloc(Matf, nw.layers.len - 1);
-        var activations = try allocator.alloc(Matf, nw.layers.len);
+    // Output layer error:
+    //   δ = (a - o) ⊙ σ'(z)
+    var delta = try activations[0].clone(allocator);
+    for (batch) |b, i| {
+        delta.data[i + batch.len * b.label] -= 1.0;
+    }
 
-        // For each input, calculate all z values and sigmoid activations.
-        {
-            var a = try data.toInput(allocator);
-            activations[0] = a;
-            for (nw.weights) |w, i| {
-                // a = sigma(w * a' + b)
-                var z = try nw.biases[i].clone(allocator);
-                const w_mul_a = try w.mul(a, allocator);
-                z.add(w_mul_a);
-                zs[i] = z;
-
-                a = try z.apply(allocator, f32, sigmoid);
-                activations[i + 1] = a;
-            }
+    // Previous layer error:
+    //   δ' = (w * δ) ⊙ σ'(z)
+    for (zs) |z, i| {
+        if (i > 0) {
+            var ws_t = try nw.weights[nw.weights.len - i].transpose(allocator);
+            delta = try ws_t.mul(delta, allocator);
         }
 
-        mem.reverse(Matf, zs);
-        mem.reverse(Matf, activations);
+        var sig_p = try z.apply(allocator, f32, sigmoid_prime);
+        delta.mulElem(sig_p);
 
-        // Output layer error:
-        //   δ = ∇ C ⊙ σ'(z)
-        var delta = try activations[0].clone(allocator);
-        delta.data[data.label] -= 1.0;
+        // ∇_b(C) = δ
+        nabla_b[i].add(blk: {
+            var ones = try Matf.init(allocator, delta.n, 1);
+            mem.set(f32, ones.data, 1);
+            break :blk try delta.mul(ones, allocator);
+        });
 
-        // Previous layer error:
-        //   δ' = (w * δ) ⊙ σ'(z)
-        for (zs) |z, i| {
-            if (i > 0) {
-                var ws_t = try nw.weights[nw.weights.len - i].transpose(allocator);
-                delta = try ws_t.mul(delta, allocator);
-            }
-
-            var sig_p = try z.apply(allocator, f32, sigmoid_prime);
-            delta.mulElem(sig_p);
-
-            // ∇_b(C) = δ
-            // ∇_W(C) = a' * δ
-            nabla_b[i].add(delta);
-            nabla_w[i].add(blk: {
-                var a_t = try activations[i + 1].transpose(allocator);
-                break :blk try delta.mul(a_t, allocator);
-            });
-        }
+        // ∇_W(C) = a' * δ
+        nabla_w[i].add(blk: {
+            var a_t = try activations[i + 1].transpose(allocator);
+            break :blk try delta.mul(a_t, allocator);
+        });
     }
 
     mem.reverse(Matf, nabla_w);

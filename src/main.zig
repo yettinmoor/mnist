@@ -73,7 +73,7 @@ pub fn main() anyerror!void {
         break :blk try Network.deserialize(allocator, file.reader());
     } else blk: {
         // Create network, train it and serialize it.
-        const epochs = 10;
+        const epochs = 20;
         const batch_size = 10;
         const eta = 3.0;
 
