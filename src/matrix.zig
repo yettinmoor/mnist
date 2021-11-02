@@ -129,76 +129,6 @@ pub fn Matrix(comptime T: type) type {
             return res;
         }
 
-        // // Square matrix functions
-        // pub usingnamespace if (m != n) struct {} else struct {
-        //     pub fn identity() Self {
-        //         comptime var res = Self.zeroes();
-        //         inline for (res.data) |*v, i| {
-        //             const r = i / n;
-        //             const c = i % n;
-        //             if (r == c) {
-        //                 v.* = 1;
-        //             }
-        //         }
-        //         return res;
-        //     }
-        // };
-
-        // Vector functions
-        // pub usingnamespace if (n != 1) struct {} else struct {
-        // pub fn dot(self: Self, other: Self) T {
-        //     var res: T = 0;
-        //     for (self.data) |x, i| res += x * other.data[i];
-        //     return res;
-        // }
-
-        // pub fn mag(self: Self) T {
-        //     return math.sqrt(self.dot(self));
-        // }
-
-        // pub fn normalize(self: Self) Self {
-        //     return self.mulScalar(1 / self.mag());
-        // }
-
-        // pub fn reduce(self: Self) Vector(T, m - 1) {
-        //     return Vector(T, m - 1).fromSlice(self.data[0 .. m - 1]);
-        // }
-
-        // // Vec3 cross product
-        // pub usingnamespace if (m != 3) struct {} else struct {
-        //     pub fn cross(self: Self, other: Self) Self {
-        //         const ax = self.data[0];
-        //         const ay = self.data[1];
-        //         const az = self.data[2];
-        //         const bx = other.data[0];
-        //         const by = other.data[1];
-        //         const bz = other.data[2];
-        //         return .{
-        //             .data = [_]T{
-        //                 ay * bz - az * by,
-        //                 az * bx - ax * bz,
-        //                 ax * by - ay * bx,
-        //             },
-        //         };
-        //     }
-        // };
-
-        // // new(...)
-        // pub usingnamespace switch (m) {
-        //     3 => struct {
-        //         pub fn new(x: T, y: T, z: T) Self {
-        //             return .{ .data = [_]T{ x, y, z } };
-        //         }
-        //     },
-        //     4 => struct {
-        //         pub fn new(x: T, y: T, z: T, w: T) Self {
-        //             return .{ .data = [_]T{ x, y, z, w } };
-        //         }
-        //     },
-        //     else => struct {},
-        // };
-        // };
-
         pub fn format(
             value: Self,
             comptime fmt: []const u8,
@@ -224,7 +154,12 @@ pub fn Matrix(comptime T: type) type {
             m: u32,
             n: u32,
 
-            pub fn format(value: Size, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+            pub fn format(
+                value: Size,
+                comptime fmt: []const u8,
+                options: std.fmt.FormatOptions,
+                writer: anytype,
+            ) !void {
                 try writer.print("{}x{}", .{ value.m, value.n });
             }
         };
@@ -232,21 +167,20 @@ pub fn Matrix(comptime T: type) type {
 }
 
 const testing = std.testing;
-const talloc = testing.allocator;
 
 test "add, sub" {
-    var m = try Matrix(i32).init(talloc, 2, 2);
+    var m = try Matrix(i32).init(testing.allocator, 2, 2);
     mem.copy(i32, m.data, &[_]i32{ 1, 2, 3, 4 });
-    var n = try Matrix(i32).init(talloc, 2, 2);
+    var n = try Matrix(i32).init(testing.allocator, 2, 2);
     mem.copy(i32, n.data, &[_]i32{ 5, 6, 7, 8 });
 
-    var p = try m.clone(talloc);
+    var p = try m.clone(testing.allocator);
     p.add(n);
-    testing.expectEqualSlices(i32, &[_]i32{ 6, 8, 10, 12 }, p.data);
+    try testing.expectEqualSlices(i32, &[_]i32{ 6, 8, 10, 12 }, p.data);
 
-    var q = try n.clone(talloc);
+    var q = try n.clone(testing.allocator);
     q.sub(m);
-    testing.expectEqualSlices(i32, &[_]i32{ 4, 4, 4, 4 }, q.data);
+    try testing.expectEqualSlices(i32, &[_]i32{ 4, 4, 4, 4 }, q.data);
 
     m.deinit();
     n.deinit();
@@ -255,13 +189,13 @@ test "add, sub" {
 }
 
 test "matmul square" {
-    var m = try Matrix(u32).init(talloc, 2, 2);
+    var m = try Matrix(u32).init(testing.allocator, 2, 2);
     mem.copy(u32, m.data, &[_]u32{ 1, 2, 3, 4 });
-    var n = try Matrix(u32).init(talloc, 2, 2);
+    var n = try Matrix(u32).init(testing.allocator, 2, 2);
     mem.copy(u32, n.data, &[_]u32{ 5, 6, 7, 8 });
 
-    var p = try m.mul(n, talloc);
-    testing.expectEqualSlices(u32, &[_]u32{ 19, 22, 43, 50 }, p.data);
+    var p = try m.mul(n, testing.allocator);
+    try testing.expectEqualSlices(u32, &[_]u32{ 19, 22, 43, 50 }, p.data);
 
     m.deinit();
     n.deinit();
@@ -269,15 +203,15 @@ test "matmul square" {
 }
 
 test "matmul nonsquare" {
-    var m = try Matrix(u32).init(talloc, 2, 3);
+    var m = try Matrix(u32).init(testing.allocator, 2, 3);
     mem.copy(u32, m.data, &[_]u32{ 1, 2, 3, 4, 5, 6 });
-    var n = try Matrix(u32).init(talloc, 3, 2);
+    var n = try Matrix(u32).init(testing.allocator, 3, 2);
     mem.copy(u32, n.data, &[_]u32{ 7, 8, 9, 10, 11, 12 });
 
-    var p = try m.mul(n, talloc);
-    testing.expectEqualSlices(u32, &[_]u32{ 58, 64, 139, 154 }, p.data);
-    testing.expectEqual(@as(usize, 2), p.m);
-    testing.expectEqual(@as(usize, 2), p.n);
+    var p = try m.mul(n, testing.allocator);
+    try testing.expectEqualSlices(u32, &[_]u32{ 58, 64, 139, 154 }, p.data);
+    try testing.expectEqual(@as(usize, 2), p.m);
+    try testing.expectEqual(@as(usize, 2), p.n);
 
     m.deinit();
     n.deinit();
@@ -285,60 +219,14 @@ test "matmul nonsquare" {
 }
 
 test "transpose" {
-    var m = try Matrix(u32).init(talloc, 2, 3);
+    var m = try Matrix(u32).init(testing.allocator, 2, 3);
     mem.copy(u32, m.data, &[_]u32{ 1, 2, 3, 4, 5, 6 });
 
-    var p = try m.transpose();
-    testing.expectEqualSlices(u32, &[_]u32{ 1, 4, 2, 5, 3, 6 }, p.data);
-    testing.expectEqual(@as(usize, 3), p.m);
-    testing.expectEqual(@as(usize, 2), p.n);
+    var p = try m.transpose(testing.allocator);
+    try testing.expectEqualSlices(u32, &[_]u32{ 1, 4, 2, 5, 3, 6 }, p.data);
+    try testing.expectEqual(@as(usize, 3), p.m);
+    try testing.expectEqual(@as(usize, 2), p.n);
 
     m.deinit();
     p.deinit();
 }
-// test "mat * vec" {
-//     const m = Matrix(usize, 3, 3){
-//         .data = [_]usize{
-//             3, 0, 0,
-//             0, 2, 0,
-//             0, 0, 1,
-//         },
-//     };
-//     const v = Vector(usize, 3).from([_]usize{ 10, 20, 30 });
-//     const res = m.mul(v);
-//     std.testing.expectEqual([_]usize{ 30, 40, 30 }, res.data);
-//     std.testing.expectEqual(Vector(usize, 3), @TypeOf(res));
-// }
-
-// test "identity" {
-//     const m = Matrix(usize, 3, 3).identity();
-//     std.testing.expectEqual([_]usize{
-//         1, 0, 0,
-//         0, 1, 0,
-//         0, 0, 1,
-//     }, m.data);
-// }
-
-// test "vector dot" {
-//     const v = Vector(f32, 3).new(1, 2, 3);
-//     const w = Vector(f32, 3).new(6, 5, 4);
-//     std.testing.expectEqual(@as(f32, 28), v.dot(w));
-// }
-
-// test "vector normalize" {
-//     const v = Vector(f32, 3).new(32.2, 123.0, 121.56);
-//     const mag = v.normalize().mag();
-//     std.testing.expectWithinEpsilon(@as(f32, 1.0), mag, @as(f32, 0.01));
-// }
-
-// test "reduce" {
-//     const v = Vector(f32, 4){ .data = [_]f32{ 1, 2, 3, 4 } };
-//     const w = Vector(f32, 3){ .data = [_]f32{ 1, 2, 3 } };
-//     std.testing.expectEqual(w, v.reduce());
-// }
-
-// test "cross product" {
-//     const v = Vector(f32, 3).new(2, 3, 4);
-//     const w = Vector(f32, 3).new(5, 6, 7);
-//     std.testing.expectEqual(Vector(f32, 3).new(-3, 6, -3), v.cross(w));
-// }
